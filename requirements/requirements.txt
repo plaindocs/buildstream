@@ -1,17 +1,15 @@
-click==8.0.3
-#
-# We are experiencing crashes with grpcio >= 1.39
-grpcio==1.38.1
-Jinja2==3.0.3
+click==8.1.0
+grpcio==1.44.0
+Jinja2==3.1.1
 pluginbase==1.0.1
 protobuf==3.19.4
 psutil==5.9.0
 ruamel.yaml==0.17.21
 ruamel.yaml.clib==0.2.6
-setuptools==59.6.0
+setuptools==58.1.0
 pyroaring==0.3.3
 ujson==5.1.0
 python-dateutil==2.8.2
 ## The following requirements were added by pip freeze:
-MarkupSafe==2.0.1
+MarkupSafe==2.1.1
 six==1.16.0

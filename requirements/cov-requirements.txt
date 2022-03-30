@@ -1,7 +1,7 @@
-coverage==4.4
-pytest-cov==2.10.1
-pytest==7.0.1
-Cython==0.29.27
+coverage==6.3.2
+pytest-cov==3.0.0
+pytest==7.1.1
+Cython==0.29.28
 ## The following requirements were added by pip freeze:
 attrs==21.4.0
 iniconfig==1.1.1
