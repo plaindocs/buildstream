@@ -19,7 +19,7 @@
 
 from . import Queue, QueueStatus
 from ..resources import ResourceType
-from ..jobs import JobStatus
+from ..job import JobStatus
 
 
 # A queue which assembles elements

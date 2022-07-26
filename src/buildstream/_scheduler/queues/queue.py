@@ -25,7 +25,7 @@ import traceback
 from typing import TYPE_CHECKING
 
 # Local imports
-from ..jobs import Job, JobStatus
+from ..job import Job, JobStatus
 from ..resources import ResourceType
 
 # BuildStream toplevel imports

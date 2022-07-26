@@ -27,4 +27,4 @@ from .queues.pullqueue import PullQueue
 from .queues.cachequeryqueue import CacheQueryQueue
 
 from .scheduler import Scheduler, SchedStatus
-from .jobs import Job, JobStatus
+from .job import Job, JobStatus

@@ -31,7 +31,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # Local imports
 from .resources import Resources
-from .jobs import JobStatus
+from .job import JobStatus
 from ..types import FastEnum
 from .._profile import Topics, PROFILER
 from ..plugin import Plugin

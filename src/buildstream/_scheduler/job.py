@@ -27,12 +27,12 @@ import threading
 import traceback
 
 # BuildStream toplevel imports
-from ... import utils
-from ..._utils import terminate_thread
-from ..._exceptions import BstError, set_last_task_error, SkipJob
-from ..._message import Message, MessageType
-from ...types import FastEnum
-from ..._signals import TerminateException
+from .. import utils
+from .._utils import terminate_thread
+from .._exceptions import BstError, set_last_task_error, SkipJob
+from .._message import Message, MessageType
+from ..types import FastEnum
+from .._signals import TerminateException
 
 
 # Return code values shutdown of job handling child processes
