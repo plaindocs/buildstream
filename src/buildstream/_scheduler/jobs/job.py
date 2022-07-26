@@ -29,7 +29,7 @@ import traceback
 # BuildStream toplevel imports
 from ... import utils
 from ..._utils import terminate_thread
-from ..._exceptions import ImplError, BstError, set_last_task_error, SkipJob
+from ..._exceptions import BstError, set_last_task_error, SkipJob
 from ..._message import Message, MessageType
 from ...types import FastEnum
 from ..._signals import TerminateException
@@ -72,21 +72,52 @@ class JobStatus(FastEnum):
 #    action_name (str): The queue action name
 #    logfile (str): A template string that points to the logfile
 #                   that should be used - should contain {pid}.
+#    element (Element): The element to work on
+#    action_cb (callable): The function to execute on the child
+#    complete_cb (callable): The function to execute when the job completes
 #    max_retries (int): The maximum number of retries
 #
+# Here is the calling signature of the action_cb:
+#
+#     action_cb():
+#
+#     This function will be called in the child task
+#
+#     Args:
+#        element (Element): The element passed to the Job() constructor
+#
+#     Returns:
+#        (object): Any abstract simple python object, including a string, int,
+#                  bool, list or dict, this must be a simple serializable object.
+#
+# Here is the calling signature of the complete_cb:
+#
+#     complete_cb():
+#
+#     This function will be called when the child task completes
+#
+#     Args:
+#        job (Job): The job object which completed
+#        element (Element): The element passed to the Job() constructor
+#        status (JobStatus): The status of whether the workload raised an exception
+#        result (object): The deserialized object returned by the `action_cb`, or None
+#                         if `success` is False
+#
+
+
 class Job:
     # Unique id generator for jobs
     #
     # This is used to identify tasks in the `State` class
     _id_generator = itertools.count(1)
 
-    def __init__(self, scheduler, action_name, logfile, *, max_retries=0):
+    def __init__(self, scheduler, action_name, logfile, element, action_cb, complete_cb, max_retries=0):
 
         #
         # Public members
         #
         self.id = "{}-{}".format(action_name, next(Job._id_generator))
-        self.name = None  # The name of the job, set by the job's subclass
+        self.name = element._get_full_name()
         self.action_name = action_name  # The action name for the Queue
 
         #
@@ -101,21 +132,17 @@ class Job:
         self._terminated = False  # Whether this job has been explicitly terminated
 
         self._logfile = logfile
-        self._message_element_name = None  # The task-wide element name
-        self._message_element_key = None  # The task-wide element cache key
-        self._element = None  # The Element() passed to the Job() constructor, if applicable
+        self._element_name = element._get_full_name()  # The task-wide element name
+        self._element_key = element._get_display_key()  # The task-wide element cache key
+        self._element = element  # Set the Element pertaining to the job
+        self._action_cb = action_cb  # The action callable function
+        self._complete_cb = complete_cb  # The complete callable function
 
         self._task = None  # The task that is run
 
         self._thread_id = None  # Thread in which the child executes its action
         self._should_terminate = False
         self._terminate_lock = threading.Lock()
-
-    # set_name()
-    #
-    # Sets the name of this job
-    def set_name(self, name):
-        self.name = name
 
     # start()
     #
@@ -168,28 +195,6 @@ class Job:
     def get_terminated(self):
         return self._terminated
 
-    # set_message_element_name()
-    #
-    # This is called by Job subclasses to set the plugin instance element
-    # name issuing the message (if an element is related to the Job).
-    #
-    # Args:
-    #     element_name (int): The element_name to be supplied to the Message() constructor
-    #
-    def set_message_element_name(self, element_name):
-        self._message_element_name = element_name
-
-    # set_message_element_key()
-    #
-    # This is called by Job subclasses to set the element
-    # key for for the issuing message (if an element is related to the Job).
-    #
-    # Args:
-    #     element_key (_DisplayKey): The element_key tuple to be supplied to the Message() constructor
-    #
-    def set_message_element_key(self, element_key):
-        self._message_element_key = element_key
-
     # message():
     #
     # Logs a message, this will be logged in the task's logfile and
@@ -204,54 +209,19 @@ class Job:
     def message(self, message_type, message, **kwargs):
         kwargs["scheduler"] = True
         message = Message(
-            message_type,
-            message,
-            element_name=self._message_element_name,
-            element_key=self._message_element_key,
-            **kwargs
+            message_type, message, element_name=self._element_name, element_key=self._element_key, **kwargs
         )
         self._messenger.message(message)
 
     # get_element()
     #
-    # Get the Element() related to the job, if jobtype (i.e ElementJob) is
-    # applicable, default None.
+    # Get the Element() related to the job
     #
     # Returns:
     #     (Element): The Element() instance pertaining to the Job, else None.
     #
     def get_element(self):
         return self._element
-
-    #######################################################
-    #                  Abstract Methods                   #
-    #######################################################
-
-    # child_process()
-    #
-    # This will be executed after starting the child process, and is intended
-    # to perform the job's task.
-    #
-    # Returns:
-    #    (any): A simple object (must be pickle-able, i.e. strings, lists,
-    #           dicts, numbers, but not Element instances). It is returned to
-    #           the parent Job running in the main process. This is taken as
-    #           the result of the Job.
-    #
-    def child_process(self):
-        raise ImplError("Job '{kind}' does not implement child_process()".format(kind=type(self).__name__))
-
-    # parent_complete()
-    #
-    # This will be executed in the main process after the job finishes, and is
-    # expected to pass the result to the main thread.
-    #
-    # Args:
-    #    status (JobStatus): The job exit status
-    #    result (any): The result returned by child_process().
-    #
-    def parent_complete(self, status, result):
-        raise ImplError("Job '{kind}' does not implement parent_complete()".format(kind=type(self).__name__))
 
     #######################################################
     #                  Local Private Methods              #
@@ -301,7 +271,7 @@ class Job:
         else:
             status = JobStatus.FAIL
 
-        self.parent_complete(status, self._result)
+        self._complete_cb(self, self._element, status, self._result)
         self._scheduler.job_completed(self, status)
         self._task = None
 
@@ -312,9 +282,7 @@ class Job:
     def child_action(self):
         # Set the global message handler in this child
         # process to forward messages to the parent process
-        self._messenger.setup_new_action_context(
-            self.action_name, self._message_element_name, self._message_element_key
-        )
+        self._messenger.setup_new_action_context(self.action_name, self._element_name, self._element_key)
 
         # Time, log and and run the action function
         #
@@ -331,7 +299,7 @@ class Job:
 
                 try:
                     # Try the task action
-                    result = self.child_process()  # pylint: disable=assignment-from-no-return
+                    result = self._action_cb(self._element)
                 except SkipJob as e:
                     elapsed = datetime.datetime.now() - timeinfo.start_time
                     self.message(MessageType.SKIPPED, str(e), elapsed=elapsed, logfile=filename)

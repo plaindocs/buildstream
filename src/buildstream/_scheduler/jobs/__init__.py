@@ -16,5 +16,4 @@
 #  Authors:
 #        Tristan Maat <tristan.maat@codethink.co.uk>
 
-from .elementjob import ElementJob
-from .job import JobStatus
+from .job import Job, JobStatus

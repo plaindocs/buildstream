@@ -25,7 +25,7 @@ import traceback
 from typing import TYPE_CHECKING
 
 # Local imports
-from ..jobs import ElementJob, JobStatus
+from ..jobs import Job, JobStatus
 from ..resources import ResourceType
 
 # BuildStream toplevel imports
@@ -232,12 +232,11 @@ class Queue:
             ready.append(element)
 
         return [
-            ElementJob(
+            Job(
                 self._scheduler,
                 self.action_name,
                 self._element_log_path(element),
                 element=element,
-                queue=self,
                 action_cb=self.get_process_func(),
                 complete_cb=self._job_done,
                 max_retries=self._max_retries,
